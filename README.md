@@ -22,7 +22,7 @@ Clone the Repository:
 
 bash
 Copy code
-git clone https://github.com/yourusername/tracker-app.git
+git clone [https://github.com/Ahmed-Elshobary/Syadtech-Ahmed-Elshobary-iOS-Task.git]
 cd tracker-app
 Install CocoaPods (if you haven't already):
 
