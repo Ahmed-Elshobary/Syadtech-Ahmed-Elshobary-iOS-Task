@@ -18,12 +18,14 @@ class TrackerViewModel: NSObject, CLLocationManagerDelegate {
     var isTracking = false
     var savedPaths = [PathEntity]()
     private var context: NSManagedObjectContext
+    var mapView: GMSMapView? // MapView reference from the ViewModel
     var onLocationUpdate: ((CLLocationCoordinate2D) -> Void)?
     var onPathsUpdated: (() -> Void)?
     var hasZoomedToUserLocation = false
 
-    init(context: NSManagedObjectContext) {
+    init(context: NSManagedObjectContext, mapView: GMSMapView) {
         self.context = context
+        self.mapView = mapView
         super.init()
         setupLocationManager()
     }
@@ -46,6 +48,25 @@ class TrackerViewModel: NSObject, CLLocationManagerDelegate {
         isTracking = false
         locationManager.stopUpdatingLocation()
         savePathToCoreData()
+
+        // Clear the path from the map
+        polyline.map = nil
+        
+        // Reset the map to the user's last known location or a default location
+        resetMapToUserLocationOrInitialPosition()
+    }
+
+    private func resetMapToUserLocationOrInitialPosition() {
+        if let lastLocation = locationManager.location?.coordinate {
+            // Reset the camera to the user's last known location with a reasonable zoom level
+            let cameraUpdate = GMSCameraUpdate.setTarget(lastLocation, zoom: 15) // Adjust the zoom level as needed
+            mapView?.animate(with: cameraUpdate)
+        } else {
+            // Fallback to a default location if the user's last location is unavailable
+            let fallbackLocation = CLLocationCoordinate2D(latitude: 24.7136, longitude: 46.6753) // Example: Riyadh, adjust as needed
+            let cameraUpdate = GMSCameraUpdate.setTarget(fallbackLocation, zoom: 10) // Adjust the zoom level as needed
+            mapView?.animate(with: cameraUpdate)
+        }
     }
 
     // Handle location updates
@@ -56,9 +77,15 @@ class TrackerViewModel: NSObject, CLLocationManagerDelegate {
         if isTracking {
             trackingPath.add(coordinate)
             polyline.path = trackingPath
+            polyline.strokeColor = .red
+            polyline.strokeWidth = 5
+            polyline.map = mapView // Update the map with the new path
         }
 
-        // Notify the view controller about location updates
+        // Automatically update the camera to the user's location
+        let cameraUpdate = GMSCameraUpdate.setTarget(coordinate)
+        mapView?.animate(with: cameraUpdate)
+
         onLocationUpdate?(coordinate)
     }
 

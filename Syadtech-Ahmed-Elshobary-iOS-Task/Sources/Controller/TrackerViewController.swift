@@ -25,9 +25,9 @@ class TrackerViewController: UIViewController {
         setupMapView()
         setupTableView()
 
-        // Initialize the view model with Core Data context
+        // Initialize the view model with Core Data context and pass mapView
         let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-        viewModel = TrackerViewModel(context: context)
+        viewModel = TrackerViewModel(context: context, mapView: mapView)
 
         // Bind view model updates to UI
         viewModel.onLocationUpdate = { [weak self] coordinate in
@@ -78,7 +78,7 @@ class TrackerViewController: UIViewController {
         view.addSubview(mapView)
 
         mapView.isMyLocationEnabled = true    // Show the blue dot for user's location
-           mapView.settings.myLocationButton = true // Show the location button in the bottom right
+        mapView.settings.myLocationButton = true // Show the location button in the bottom right
         
         NSLayoutConstraint.activate([
             mapView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 100),
@@ -151,63 +151,59 @@ extension TrackerViewController: UITableViewDataSource, UITableViewDelegate {
     }
 }
 
-// open vc to view map and the path
+// Open VC to view map and the path
 
 extension TrackerViewController {
     func showPopupWithPath(_ path: GMSMutablePath) {
-           // Create a view controller for the pop-up
-           let mapPopupVC = UIViewController()
-           mapPopupVC.modalPresentationStyle = .overCurrentContext
-           mapPopupVC.view.backgroundColor = UIColor.white.withAlphaComponent(0.9)
+        let mapPopupVC = UIViewController()
+        mapPopupVC.modalPresentationStyle = .overCurrentContext
+        mapPopupVC.view.backgroundColor = UIColor.white.withAlphaComponent(0.9)
 
-           // Initialize the map view with layout setup
-           let mapViewPopup = GMSMapView()
-           mapViewPopup.translatesAutoresizingMaskIntoConstraints = false
-           mapPopupVC.view.addSubview(mapViewPopup)
+        let mapViewPopup = GMSMapView()
+        mapViewPopup.translatesAutoresizingMaskIntoConstraints = false
+        mapPopupVC.view.addSubview(mapViewPopup)
 
-           // Constrain the map view within the popup
-           NSLayoutConstraint.activate([
-               mapViewPopup.topAnchor.constraint(equalTo: mapPopupVC.view.topAnchor, constant: 40),
-               mapViewPopup.leadingAnchor.constraint(equalTo: mapPopupVC.view.leadingAnchor, constant: 20),
-               mapViewPopup.trailingAnchor.constraint(equalTo: mapPopupVC.view.trailingAnchor, constant: -20),
-               mapViewPopup.heightAnchor.constraint(equalToConstant: 300)
-           ])
+        NSLayoutConstraint.activate([
+            mapViewPopup.topAnchor.constraint(equalTo: mapPopupVC.view.topAnchor, constant: 40),
+            mapViewPopup.leadingAnchor.constraint(equalTo: mapPopupVC.view.leadingAnchor, constant: 20),
+            mapViewPopup.trailingAnchor.constraint(equalTo: mapPopupVC.view.trailingAnchor, constant: -20),
+            mapViewPopup.heightAnchor.constraint(equalToConstant: 300)
+        ])
 
-           // Set the camera and polyline after the view is fully laid out
-           mapPopupVC.view.layoutIfNeeded()
+        mapPopupVC.view.layoutIfNeeded()
 
-           DispatchQueue.main.async {
-               // Add the polyline to the map view
-               let polyline = GMSPolyline(path: path)
-               polyline.strokeWidth = 5
-               polyline.strokeColor = UIColor.systemBlue
-               polyline.map = mapViewPopup
+        DispatchQueue.main.async {
+            let polyline = GMSPolyline(path: path)
+            polyline.strokeWidth = 5
+            polyline.strokeColor = UIColor.systemBlue
+            polyline.map = mapViewPopup
 
-               // Set the camera to center on the first coordinate in the path
-               let firstCoordinate = path.coordinate(at: 0)
-               let camera = GMSCameraPosition.camera(withTarget: firstCoordinate, zoom: 15)
-               mapViewPopup.camera = camera
-           }
+            // Set the camera to show the entire path
+            var bounds = GMSCoordinateBounds()
+            for i in 0..<path.count() {
+                bounds = bounds.includingCoordinate(path.coordinate(at: i))
+            }
+            let update = GMSCameraUpdate.fit(bounds, withPadding: 50)
+            mapViewPopup.animate(with: update)
+        }
 
-           // Add a dismiss button
-           let dismissButton = UIButton(type: .system)
-           dismissButton.setTitle("Close", for: .normal)
-           dismissButton.addTarget(self, action: #selector(dismissPopup), for: .touchUpInside)
-           dismissButton.translatesAutoresizingMaskIntoConstraints = false
-           mapPopupVC.view.addSubview(dismissButton)
+        let dismissButton = UIButton(type: .system)
+        dismissButton.setTitle("Close", for: .normal)
+        dismissButton.addTarget(self, action: #selector(dismissPopup), for: .touchUpInside)
+        dismissButton.translatesAutoresizingMaskIntoConstraints = false
+        mapPopupVC.view.addSubview(dismissButton)
 
-           NSLayoutConstraint.activate([
-               dismissButton.centerXAnchor.constraint(equalTo: mapPopupVC.view.centerXAnchor),
-               dismissButton.topAnchor.constraint(equalTo: mapViewPopup.bottomAnchor, constant: 20),
-               dismissButton.widthAnchor.constraint(equalToConstant: 100),
-               dismissButton.heightAnchor.constraint(equalToConstant: 40)
-           ])
+        NSLayoutConstraint.activate([
+            dismissButton.centerXAnchor.constraint(equalTo: mapPopupVC.view.centerXAnchor),
+            dismissButton.topAnchor.constraint(equalTo: mapViewPopup.bottomAnchor, constant: 20),
+            dismissButton.widthAnchor.constraint(equalToConstant: 100),
+            dismissButton.heightAnchor.constraint(equalToConstant: 40)
+        ])
 
-           // Present the pop-up
-           self.present(mapPopupVC, animated: true)
-       }
+        self.present(mapPopupVC, animated: true)
+    }
 
-       @objc func dismissPopup() {
-           self.dismiss(animated: true, completion: nil)
-       }
+    @objc func dismissPopup() {
+        self.dismiss(animated: true, completion: nil)
+    }
 }
